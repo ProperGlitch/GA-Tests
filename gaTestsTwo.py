@@ -4,17 +4,11 @@ from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.problems import get_problem
 from pymoo.optimize import minimize
 from pymoo.core.problem import Problem
-from matplotlib import cbook, cm
-from matplotlib.colors import LightSource
-from mpl_toolkits.mplot3d import Axes3D
-from pymoo.util.display.column import Column
-from pymoo.util.display.output import Output
+import time
 
-# This makes a problem which acts as a 3d porabola
-#It is lowest at 2,2
+
+#Best at 2,2
 class bowl(Problem):
-    #This initilizes the problem and sets (in order):
-    #The number of variables, the number of objectives, the number of constraints, and the boundries of the function
     def __init__(self):
         super().__init__(n_var=2,
                          n_obj=1,
@@ -26,78 +20,126 @@ class bowl(Problem):
         f = (X[:, 0] - 2)**2 + (X[:, 1] - 2)**2
         out["F"] = f
 
-#This gets the ackley function that already exists within pymoo
-#This is lowest at 0,0
-ackley = get_problem("ackley", n_var=2, a=20, b=1/5, c=2 * np.pi)
-rastrigin = get_problem("rastrigin", n_var=2)
-eggholder = get_problem("Griewank")
-#This gets the NSGA2 algorithm and sets it as the algorithm to be used in minimzation
-algorithm = NSGA2(pop_size=20)
-
-problem = eggholder
-
-#plot_problem_surface(problem, 100, plot_type="wireframe+contour")
-
-class MyOutput(Output):
+class EggHolderProblem(Problem):
 
     def __init__(self):
-        super().__init__()
-        self.found_x = Column("found_x", width=13)
-        self.found_y = Column("found_y", width=13)
-        self.columns += [self.found_x, self.found_y]
+        super().__init__(n_var=2,
+                         n_obj=1,
+                         n_constr=0,
+                         xl=np.array([-512, -512]),
+                         xu=np.array([512, 512]),
+                         )
 
-    def update(self, algorithm):
-        super().update(algorithm)
-        bestValue = algorithm.pop.get("X")[np.argmin(algorithm.pop.get("F"))]
-        self.found_x.set(bestValue[0])
-        self.found_y.set(bestValue[1])
+    def _evaluate(self, X, out, *args, **kwargs):
+        x1 = X[:, 0]
+        x2 = X[:, 1]
+        term1 = -(x2 + 47) * np.sin(np.sqrt(np.abs(x1 / 2 + (x2 + 47))))
+        term2 = -x1 * np.sin(np.sqrt(np.abs(x1 - (x2 + 47))))
+        f = term1 + term2
+        out["F"] = f.reshape(-1, 1)   # (n_individuals, 1)
 
 
-x = np.linspace(problem.xl[0], problem.xu[0], 100)
-y = np.linspace(problem.xl[1], problem.xu[1], 100)
-X, Y = np.meshgrid(x, y)
-XY = np.column_stack([X.ravel(), Y.ravel()])
-Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
-XY = np.column_stack([X.ravel(), Y.ravel()])
-Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
-fig = plt.figure(figsize=(10, 7))
-ax = fig.add_subplot(111, projection='3d')
-ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha = 0.5)
-ax.set_title("3D Plot of Single-Objective Function")
-ax.set_xlabel("x1")
-ax.set_ylabel("x2")
-ax.set_zlabel("f(x1, x2)")
+#Sets the algorithim and problem
+def roll(prob = 0):
 
-for i in range(1):
-    res = minimize(problem,
-                algorithm,
-                ('n_gen', 100),
-                seed=i+1,
-                output = MyOutput(),
-                verbose=True,
-                )
+    problems = {
+    0: get_problem("ackley", n_var=2, a=20, b=1/5, c=2 * np.pi),
+    1: get_problem("rastrigin", n_var=2),
+    2: get_problem("griewank", n_var=2),
+    3: EggHolderProblem(),
+    4: bowl(),
+    }
+    problem = problems[prob]
+    algorithm = NSGA2()
+    return minimize(problem, algorithm, ('n_gen', 100), verbose=False,), problem
 
-    print("X: " + str(res.X[0]) + " | Y: " + str(res.X[1]))
+def map(inp):
 
-# Target (x, y) location where you want to add a point
-x_target = res.X[0]
-y_target = res.X[1]
+    res, problem = inp
 
-# Find the index of the closest point in the grid
-ix = (np.abs(x - x_target)).argmin()
-iy = (np.abs(y - y_target)).argmin()
+    x = np.linspace(problem.xl[0], problem.xu[0], 100)
+    y = np.linspace(problem.xl[1], problem.xu[1], 100)
+    X, Y = np.meshgrid(x, y)
+    XY = np.column_stack([X.ravel(), Y.ravel()])
+    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
+    XY = np.column_stack([X.ravel(), Y.ravel()])
+    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha = 0.5)
+    ax.set_title("3D Plot of Single-Objective Function")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
 
-# Get the exact x, y, z from the grid
-x_closest = x[ix]
-y_closest = y[iy]
-z_value = Z[iy, ix]  # Note: rows = y, columns = x in meshgrid
+    # Target (x, y) location where you want to add a point
+    if str(type(res.X[0])) == '<class \'numpy.float64\'>':
+        x_target = res.X[0]
+        y_target = res.X[1]
+    else:
+        x_target = res.X[0][0]
+        y_target = res.X[0][1]
 
-# Plot the point
-ax.scatter(x_target, y_target, z_value, color='red', s=50, label='Target Point', depthshade = False, zorder = 10)
+    ix = (np.abs(x - x_target)).argmin()
+    iy = (np.abs(y - y_target)).argmin()
+    z_value = Z[iy, ix]
 
-# Optional: label the point
-ax.text(x_target, y_target, z_value + 0.5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})', color='red')
+    ax.scatter(x_target, y_target, z_value, color='red', s=50, label='Target Point', depthshade = False, zorder = 10)
+    ax.text(x_target, y_target, z_value + 0.5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})', color='red')
 
-# Show legend and plot
-ax.legend()
+    ax.legend()
+    plt.show()
+
+
+#---
+
+start = time.time()
+fig = plt.figure(figsize=(15, 10))  # ✅ Define fig here
+
+for i in range(5):
+    res, problem = roll(i)
+
+    x = np.linspace(problem.xl[0], problem.xu[0], 100)
+    y = np.linspace(problem.xl[1], problem.xu[1], 100)
+    X, Y = np.meshgrid(x, y)
+    XY = np.column_stack([X.ravel(), Y.ravel()])
+    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
+
+    ax = fig.add_subplot(2, 3, i + 1, projection='3d')  # 2 rows, 3 columns
+    ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha=0.33)
+
+    # Extract solution point
+    if isinstance(res.X[0], np.float64):
+        x_target = res.X[0]
+        y_target = res.X[1]
+    else:
+        x_target = res.X[0][0]
+        y_target = res.X[0][1]
+
+    ix = (np.abs(x - x_target)).argmin()
+    iy = (np.abs(y - y_target)).argmin()
+    z_value = Z[iy, ix]
+
+    # Plot and label point
+    ax.scatter(x_target, y_target, z_value, color='red', s=30, label='Best', depthshade=False, zorder=10)
+    ax.text(x_target, y_target, z_value + 5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})',
+            color='black', fontsize=8, ha='center')
+
+    titles = [
+        "0, 0",
+        "0, 0",
+        "0, 0",
+        "512, 404.2319",
+        "2,2"
+    ]
+    ax.set_title(f"Ideal: {titles[i]}")
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("f(x, y)")
+
+end = time.time()  # ✅ End the timer
+print(f"\nTotal time to generate all plots: {end - start:.2f} seconds")
+
+plt.tight_layout()
 plt.show()
+
