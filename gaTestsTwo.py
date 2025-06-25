@@ -5,6 +5,7 @@ from pymoo.problems import get_problem
 from pymoo.optimize import minimize
 from pymoo.core.problem import Problem
 import time
+from pymoo.operators.mutation.pm import PM
 
 
 #Best at 2,2
@@ -48,98 +49,78 @@ def roll(prob = 0):
     2: get_problem("griewank", n_var=2),
     3: EggHolderProblem(),
     4: bowl(),
+    5: get_problem("dtlz2", n_var=11, n_obj=3)
     }
     problem = problems[prob]
     algorithm = NSGA2()
     return minimize(problem, algorithm, ('n_gen', 100), verbose=False,), problem
 
-def map(inp):
-
-    res, problem = inp
-
-    x = np.linspace(problem.xl[0], problem.xu[0], 100)
-    y = np.linspace(problem.xl[1], problem.xu[1], 100)
-    X, Y = np.meshgrid(x, y)
-    XY = np.column_stack([X.ravel(), Y.ravel()])
-    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
-    XY = np.column_stack([X.ravel(), Y.ravel()])
-    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha = 0.5)
-    ax.set_title("3D Plot of Single-Objective Function")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
-
-    # Target (x, y) location where you want to add a point
-    if str(type(res.X[0])) == '<class \'numpy.float64\'>':
-        x_target = res.X[0]
-        y_target = res.X[1]
-    else:
-        x_target = res.X[0][0]
-        y_target = res.X[0][1]
-
-    ix = (np.abs(x - x_target)).argmin()
-    iy = (np.abs(y - y_target)).argmin()
-    z_value = Z[iy, ix]
-
-    ax.scatter(x_target, y_target, z_value, color='red', s=50, label='Target Point', depthshade = False, zorder = 10)
-    ax.text(x_target, y_target, z_value + 0.5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})', color='red')
-
-    ax.legend()
-    plt.show()
-
-
 #---
 
 start = time.time()
-fig = plt.figure(figsize=(15, 10))  # ✅ Define fig here
 
-for i in range(5):
-    res, problem = roll(i)
+fig = plt.figure(figsize=(18, 10))  # Optional: widen a bit to fit 6 plots better
 
-    x = np.linspace(problem.xl[0], problem.xu[0], 100)
-    y = np.linspace(problem.xl[1], problem.xu[1], 100)
-    X, Y = np.meshgrid(x, y)
-    XY = np.column_stack([X.ravel(), Y.ravel()])
-    Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
+for i in range(6):  # Now includes DTLZ2
+    if i < 5:
+        res, problem = roll(i)
 
-    ax = fig.add_subplot(2, 3, i + 1, projection='3d')  # 2 rows, 3 columns
-    ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha=0.33)
+        x = np.linspace(problem.xl[0], problem.xu[0], 100)
+        y = np.linspace(problem.xl[1], problem.xu[1], 100)
+        X, Y = np.meshgrid(x, y)
+        XY = np.column_stack([X.ravel(), Y.ravel()])
+        Z = np.array([problem.evaluate(xi) for xi in XY]).reshape(X.shape)
 
-    # Extract solution point
-    if isinstance(res.X[0], np.float64):
-        x_target = res.X[0]
-        y_target = res.X[1]
+        ax = fig.add_subplot(2, 3, i + 1, projection='3d')
+        ax.plot_surface(X, Y, Z, cmap='viridis', edgecolor='none', alpha=0.33)
+
+        # Extract solution point
+        if isinstance(res.X[0], np.float64):
+            x_target = res.X[0]
+            y_target = res.X[1]
+        else:
+            x_target = res.X[0][0]
+            y_target = res.X[0][1]
+
+        ix = (np.abs(x - x_target)).argmin()
+        iy = (np.abs(y - y_target)).argmin()
+        z_value = Z[iy, ix]
+
+        # Plot and label point
+        ax.scatter(x_target, y_target, z_value, color='red', s=30, label='Best', depthshade=False, zorder=10)
+        ax.text(x_target, y_target, z_value + 5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})',
+                color='black', fontsize=8, ha='center')
+
+        titles = [
+            "0, 0",
+            "0, 0",
+            "0, 0",
+            "512, 404.2319",
+            "2,2"
+        ]
+        ax.set_title(f"Ideal: {titles[i]}")
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("f(x, y)")
+
     else:
-        x_target = res.X[0][0]
-        y_target = res.X[0][1]
+        # ✅ Special case: DTLZ2 (multi-objective)
+        res, problem = roll(5)
+        F = res.F  # shape (n_solutions, 3)
 
-    ix = (np.abs(x - x_target)).argmin()
-    iy = (np.abs(y - y_target)).argmin()
-    z_value = Z[iy, ix]
+        ax = fig.add_subplot(2, 3, 6, projection='3d')
+        ax.scatter(F[:, 0], F[:, 1], F[:, 2], c='blue', s=15, alpha=0.7)
+        ax.set_title("Pareto Front - DTLZ2")
+        ax.set_xlabel("f1")
+        ax.set_ylabel("f2")
+        ax.set_zlabel("f3")
+        ax.view_init(elev=30, azim=45)
 
-    # Plot and label point
-    ax.scatter(x_target, y_target, z_value, color='red', s=30, label='Best', depthshade=False, zorder=10)
-    ax.text(x_target, y_target, z_value + 5, f'({x_target:.2f}, {y_target:.2f}, {z_value:.2f})',
-            color='black', fontsize=8, ha='center')
-
-    titles = [
-        "0, 0",
-        "0, 0",
-        "0, 0",
-        "512, 404.2319",
-        "2,2"
-    ]
-    ax.set_title(f"Ideal: {titles[i]}")
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("f(x, y)")
 
 end = time.time()  # ✅ End the timer
 print(f"\nTotal time to generate all plots: {end - start:.2f} seconds")
 
 plt.tight_layout()
 plt.show()
+
 

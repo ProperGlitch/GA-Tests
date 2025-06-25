@@ -80,7 +80,7 @@ class RankAndCrowdingSurvival(RankAndCrowding):
 class BGA(GeneticAlgorithm):
 
     def __init__(self,
-                 pop_size=300,
+                 pop_size=100,
                  sampling=FloatRandomSampling(),
                  selection=TournamentSelection(func_comp=binary_tournament),
                  crossover=SBX(eta=15, prob=0.9),
