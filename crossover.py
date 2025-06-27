@@ -1,14 +1,13 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from nsga2_utils import run_nsga2, get_metrics, plot_nsga2_result, generate_true_pareto_surface
+from nsga2_utils import run_nsga2, get_metrics, plot_nsga2_result, generate_true_front
 import numpy as np
 
 # Define eta_crossover values to test
 eta_values = [15, 30, 45, 60, 75, 90]
 
 # Generate true Pareto surface once for all plots
-true_surface = generate_true_pareto_surface()
-true_front_points = np.column_stack([true_surface[0].ravel(), true_surface[1].ravel(), true_surface[2].ravel()])
+true_front_points = generate_true_front()
 
 # Prepare figure
 fig = plt.figure(figsize=(18, 10))
@@ -29,7 +28,7 @@ best_result = max(results, key=lambda x: x[0])
 
 # Plot all
 for hv, ax, label, F in results:
-    plot_nsga2_result(ax, F, true_surface, label, highlight=(ax == best_result[1]))
+    plot_nsga2_result(ax, F, generate_true_front(), label, highlight=(ax == best_result[1]))
 
 # Legend
 custom_legend = [

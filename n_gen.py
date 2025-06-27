@@ -1,14 +1,16 @@
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
-from nsga2_utils import run_nsga2, get_metrics, plot_nsga2_result, generate_true_pareto_surface
+from nsga2_utils import run_nsga2, get_metrics, plot_nsga2_result, generate_true_front
 import numpy as np
+
 
 # Define mutation probabilities to test
 generations = [10, 20, 50, 100, 200, 500]
+problem_name = "DTLZ7"
+
 
 # Generate true Pareto surface once
-true_surface = generate_true_pareto_surface()
-true_front_points = np.column_stack([true_surface[0].ravel(), true_surface[1].ravel(), true_surface[2].ravel()])
+true_front_points = generate_true_front(problem_name)
 
 # Prepare figure
 fig = plt.figure(figsize=(18, 10))
@@ -19,7 +21,7 @@ results = []
 
 # Run study
 for ax, p_mut in zip(axes, generations):
-    F, duration = run_nsga2(n_gen=p_mut, seed=42)
+    F, duration = run_nsga2(n_gen=p_mut, problem_name="DTLZ7", seed=42)
     hv, igd = get_metrics(F, true_front_points)
     label = f"p_mut: {p_mut:.1f} | HV: {hv:.3f} | IGD: {igd:.3f}\nTime: {duration:.2f}s"
     results.append((hv, ax, label, F))
@@ -29,7 +31,7 @@ best_result = max(results, key=lambda x: x[0])
 
 # Plot
 for hv, ax, label, F in results:
-    plot_nsga2_result(ax, F, true_surface, label, highlight=(ax == best_result[1]))
+    plot_nsga2_result(ax, F, true_front_points, label, highlight=(ax == best_result[1]))
 
 # Legend
 custom_legend = [
@@ -40,6 +42,6 @@ fig.legend(handles=custom_legend, loc='upper center', ncol=2, fontsize=12)
 
 # Title and layout
 plt.subplots_adjust(top=0.90)
-plt.suptitle("DTLZ2 - NSGA-II with Varying Number of Generations (n_gen)", fontsize=16)
+plt.suptitle(f"{problem_name} - NSGA-II with Varying Number of Generations (n_gen)", fontsize=16)
 plt.tight_layout()
 plt.show()
